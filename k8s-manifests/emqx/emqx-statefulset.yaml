@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: emqx
+  namespace: emqx
+  labels:
+    app: emqx
+spec:
+  serviceName: emqx-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx
+  template:
+    metadata:
+      labels:
+        app: emqx
+    spec:
+      containers:
+        - name: emqx
+          image: emqx/emqx:latest
+          ports:
+            - name: mqtt-tcp
+              containerPort: 1883
+              protocol: TCP
+            - name: mqtt-ssl
+              containerPort: 8883
+              protocol: TCP
+            - name: mqtt-ws
+              containerPort: 8083
+              protocol: TCP
+            - name: mqtt-wss
+              containerPort: 8084
+              protocol: TCP
+            - name: dashboard
+              containerPort: 18083
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: emqx-config
+            - secretRef:
+                name: emqx-secret
+          volumeMounts:
+            - name: emqx-data
+              mountPath: /opt/emqx/data
+            - name: emqx-log
+              mountPath: /opt/emqx/log
+          livenessProbe:
+            exec:
+              command:
+                - /opt/emqx/bin/emqx
+                - ctl
+                - status
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command:
+                - /opt/emqx/bin/emqx
+                - ctl
+                - status
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            exec:
+              command:
+                - /opt/emqx/bin/emqx
+                - ctl
+                - status
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 15
+            failureThreshold: 30
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      volumes:
+        - name: emqx-data
+          persistentVolumeClaim:
+            claimName: emqx-data
+        - name: emqx-log
+          persistentVolumeClaim:
+            claimName: emqx-log
