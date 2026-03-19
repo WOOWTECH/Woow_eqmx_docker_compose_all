@@ -1,563 +1,247 @@
-# EMQX Docker Compose 部署指南 / Deployment Guide
+# Woow EMQX - Home Assistant Add-on
 
-[中文](#中文) | [English](#english)
+[EMQX](https://www.emqx.io/) 是一個開源的高效能即時訊息處理引擎，為大規模 IoT 設備提供事件串流能力。
+作為最具擴展性的 MQTT Broker，EMQX 可連接任何設備、任何規模——包括你的智慧家庭。
 
----
+此 Add-on 由 **WOOWTECH** 維護，基於 [hassio-addons/addon-emqx](https://github.com/hassio-addons/addon-emqx) 進行 Fork。
+EMQX 是 Home Assistant 中 Mosquitto MQTT Broker 的進階替代方案，提供圖形化管理介面。
 
-## 中文
+## 架構組成
 
-### 簡介
+| 元件 | 版本 | 說明 |
+|------|------|------|
+| EMQX | 5.8.9 | MQTT Broker |
+| Erlang/OTP | 內建 | EMQX 執行環境 |
+| SQLite | 內建 | 內部設定存儲 |
 
-本專案提供使用 Docker Compose 一鍵部署 **EMQX MQTT Broker** 的完整方案。EMQX 是全球領先的開源分散式 MQTT 訊息代理，專為 IoT、M2M 和行動應用設計，支援數百萬級並發連接。
+## 系統需求
 
-本部署方案已在以下環境成功驗證：
-- **EMQX 6.0.0** (`emqx/emqx:latest`)
-- **Podman 4.9.3** + podman-compose 1.0.6
-- **Ubuntu Linux** (也支援 Docker)
+- Home Assistant OS (HAOS) 或 Home Assistant Supervised
+- 支援架構：`amd64`、`aarch64`
+- 建議至少 512MB RAM
+- 需要主機網路模式 (host_network)
 
-### 架構圖
+## 快速安裝
 
-```
-┌──────────────────────────────────────────────┐
-│              EMQX Broker v6.0.0              │
-│  ┌──────────────────────────────────────────┐│
-│  │  MQTT TCP:       1883                    ││
-│  │  MQTT SSL/TLS:   8883                    ││
-│  │  WebSocket:      8083                    ││
-│  │  WebSocket SSL:  8084                    ││
-│  │  Dashboard UI:   18083                   ││
-│  └──────────────────────────────────────────┘│
-│  Volumes:                                    │
-│  ├── emqx_data (配置 + 運行數據)              │
-│  └── emqx_log  (日誌)                        │
-└──────────────────────────────────────────────┘
-               ▲
-               │ MQTT 連接
-     ┌─────────┴─────────┐
-     │   IoT 設備 / 感測器 │
-     └───────────────────┘
-```
+1. 在 Home Assistant 中新增此 Add-on 儲存庫
+2. 安裝 **Woow EMQX**
+3. 啟動 Add-on
+4. 點擊 **開啟 Web UI** 進入 EMQX Dashboard
+5. 使用預設帳號登入：
+   - **使用者名稱**: `admin`
+   - **密碼**: `public`
+6. **務必先設定 MQTT 驗證機制**
 
-### 系統需求
+## 連接埠說明
 
-| 項目 | 最低要求 |
-|------|---------|
-| 容器引擎 | Docker 20.10+ 或 Podman 4.0+ |
-| Compose 工具 | Docker Compose 2.0+ 或 podman-compose |
-| 記憶體 | 512MB+ (建議 1GB+) |
-| 端口 | 1883, 8883, 8083, 8084, 18083 |
+此 Add-on 使用主機網路模式，直接使用 Home Assistant 主機的連接埠：
 
-### 專案檔案結構
+| 連接埠 | 協定 | 說明 |
+|--------|------|------|
+| 1883 | MQTT | 標準 MQTT 連線 |
+| 8083 | MQTT/WS | MQTT over WebSocket |
+| 8084 | MQTT/WSS | MQTT over 安全 WebSocket |
+| 8883 | MQTTS | MQTT over SSL/TLS |
+| 18083 | HTTP | EMQX Dashboard（管理介面） |
 
-```
-Woow_eqmx_docker_compose_all/
-├── docker-compose.yml   # Docker Compose 主要配置檔
-├── .env.example         # 環境變數範例檔（複製為 .env 使用）
-├── .gitignore           # Git 忽略規則（排除 .env 等敏感檔案）
-├── README.md            # 本檔案 - 完整中英文部署說明
-└── DEPLOY_SKILL.md      # AI 快速部署技能指引
-```
+## 首次設定
 
-### 快速開始
+### 1. 設定驗證機制（必要）
 
-#### 1. 取得專案
+首次登入 EMQX Dashboard 後，**必須**先設定 MQTT 驗證：
 
-```bash
-git clone https://github.com/WOOWTECH/Woow_eqmx_docker_compose_all.git
-cd Woow_eqmx_docker_compose_all
-```
+1. 前往 **Access Control** → **Authentication**
+2. 點擊 **Create**
+3. 選擇驗證方式（建議 **Password-Based** → **Built-in Database**）
+4. 完成建立
+5. 新增 MQTT 使用者帳號和密碼
 
-#### 2. 建立環境配置
+### 2. 設定 Home Assistant MQTT 整合
 
-```bash
-cp .env.example .env
-```
+1. 前往 Home Assistant **設定** → **裝置與服務** → **新增整合**
+2. 搜尋 **MQTT**
+3. 填寫連線資訊：
+   - **Broker**: `homeassistant` 或 `localhost`
+   - **連接埠**: `1883`
+   - **使用者名稱**: （在 EMQX 中建立的帳號）
+   - **密碼**: （在 EMQX 中設定的密碼）
 
-#### 3. 修改設定（建議）
+### 3. 設定 Zigbee2MQTT（選擇性）
 
-編輯 `.env` 檔案，至少修改 Dashboard 密碼：
+如果使用 Zigbee2MQTT：
+- **Broker**: `homeassistant` 或 `a0d7b954-emqx`
+- **連接埠**: `1883`
+- 使用在 EMQX 中建立的帳號和密碼
 
-```bash
-# 使用你喜好的編輯器
-nano .env
-# 或
-vim .env
-```
+### 4. 外部設備連線
 
-重要設定項：
+外部 IoT 設備連線到 EMQX：
+- **Broker**: Home Assistant 主機的 IP 位址
+- **連接埠**: `1883`（MQTT）或 `8883`（MQTT over SSL/TLS）
 
-| 變數 | 預設值 | 說明 |
-|------|--------|------|
-| `EMQX_VERSION` | latest | EMQX 映像版本 |
-| `EMQX_DASHBOARD_USER` | admin | Dashboard 登入帳號 |
-| `EMQX_DASHBOARD_PASSWORD` | public | Dashboard 登入密碼 (**請修改**) |
-| `EMQX_DASHBOARD_PORT` | 18083 | Dashboard 網頁端口 |
-| `MQTT_TCP_PORT` | 1883 | MQTT TCP 端口 |
-| `MQTT_SSL_PORT` | 8883 | MQTT SSL 端口 |
-| `MQTT_WS_PORT` | 8083 | MQTT WebSocket 端口 |
-| `MQTT_WSS_PORT` | 8084 | MQTT WebSocket SSL 端口 |
-| `EMQX_HOST` | 127.0.0.1 | 節點主機位址 |
-| `EMQX_ALLOW_ANONYMOUS` | true | 是否允許匿名連接 |
+## 設定說明
 
-#### 4. 啟動服務
+大部分設定可直接在 EMQX Dashboard（Web UI）中完成，無需修改 Add-on 設定。
 
-**使用 Docker Compose:**
-```bash
-docker compose up -d
+### 環境變數（進階）
+
+對於 Dashboard 中無法設定的進階選項，可透過環境變數設定：
+
+```yaml
+env_vars:
+  - name: EMQX_NODE__NAME
+    value: "something@else.local"
+  - name: EMQX_LISTENERS__TCP__DEFAULT__MAX_CONNECTIONS
+    value: "1000000"
 ```
 
-**使用 Podman:**
-```bash
-podman-compose up -d
-```
+規則：
+- 僅接受以 `EMQX_` 開頭的變數名稱
+- 變數名稱使用雙底線 `__` 代表設定層級
+- 修改後需重啟 Add-on
 
-#### 5. 驗證部署
+完整環境變數參考：https://www.emqx.io/docs/en/v5.0/admin/cfg.html
 
-等待約 30 秒讓 EMQX 完全啟動：
+## EMQX Dashboard 功能
 
-```bash
-# 檢查容器狀態（STATUS 應顯示 healthy）
-docker compose ps
-# 或
-podman-compose ps
+### 監控面板
+- 即時連線數、訊息吞吐量
+- 節點狀態監控
+- 系統資源使用狀況
 
-# 檢查 EMQX 運行狀態
-docker exec emqx emqx ctl status
-# 或
-podman exec emqx emqx ctl status
-# 預期輸出: Node 'emqx@127.0.0.1' 6.0.0 is started
+### 用戶端管理
+- 查看所有連線的 MQTT 用戶端
+- 踢出特定用戶端
+- 查看訂閱主題和訊息統計
 
-# 測試 Dashboard 是否可訪問
-curl -s -o /dev/null -w "%{http_code}" http://localhost:18083
-# 預期輸出: 200
-```
+### 存取控制
+- **Authentication（驗證）**: 設定帳號密碼、JWT、X.509 憑證等驗證方式
+- **Authorization（授權）**: 設定主題存取權限（ACL）
 
-#### 6. 登入 Dashboard
+### 規則引擎
+- 建立資料橋接（Data Bridge）
+- 設定訊息轉發規則
+- 支援 Webhook、Kafka、PostgreSQL 等目標
 
-開啟瀏覽器訪問：**http://localhost:18083**
+### 診斷工具
+- WebSocket 用戶端（內建 MQTT 測試工具）
+- 慢訂閱診斷
+- 主題監控
 
-- 帳號：`admin`
-- 密碼：`public`（或您在 `.env` 中設定的密碼）
+## 資料存儲
 
-### 端口說明
+| 路徑 | 說明 |
+|------|------|
+| `/data/emqx/data` | EMQX 資料（持久化） |
+| `/data/emqx/etc` | EMQX 設定檔（持久化） |
+| `/data/emqx/plugins` | EMQX 外掛（持久化） |
+| `/config/log` | 記錄檔 |
 
-| 端口 | 協定 | 用途 | 預設開啟 |
-|------|------|------|---------|
-| 1883 | MQTT TCP | MQTT 標準連接 | 是 |
-| 8883 | MQTT SSL | MQTT TLS 加密連接 | 是 |
-| 8083 | WebSocket | MQTT over WebSocket | 是 |
-| 8084 | WebSocket SSL | MQTT over WSS | 是 |
-| 18083 | HTTP | Dashboard 管理介面 | 是 |
+## 備份與還原
 
-### 常用操作指令
+- 備份包含 `/data/emqx/` 下的所有資料
+- 包括驗證設定、ACL 規則、資料橋接設定等
+- 記錄檔不包含在備份中
 
-```bash
-# ===== 服務管理 =====
-# 啟動
-docker compose up -d
+## 與 Mosquitto 的比較
 
-# 停止
-docker compose down
+| 功能 | Mosquitto | EMQX |
+|------|-----------|------|
+| 圖形化管理介面 | 無 | ✅ EMQX Dashboard |
+| 用戶端管理 | 無 | ✅ 即時監控 |
+| 規則引擎 | 無 | ✅ 資料橋接 |
+| WebSocket 支援 | 需額外設定 | ✅ 內建 |
+| ACL 管理 | 檔案設定 | ✅ Web UI 管理 |
+| 叢集支援 | 無 | ✅ 支援 |
+| 資源使用 | 極低 | 中等 |
+| 最大連線數 | 數千 | 數百萬 |
 
-# 重啟
-docker compose restart
+## 已知問題與限制
 
-# 查看即時日誌
-docker compose logs -f emqx
+### 連接埠衝突
+- **無法與 Mosquitto Add-on 同時運行**（兩者都使用連接埠 1883）
+- EMQX 預設使用連接埠 1883、8083、8084、8883
+- [WebRTC (AlexxIT)](https://github.com/AlexxIT/WebRTC) 整合可能在連接埠 8083 產生衝突
 
-# ===== EMQX 管理 =====
-# 進入 EMQX 容器
-docker compose exec emqx sh
+解決方式：
+1. 暫時停止衝突的 Add-on 或整合
+2. 啟動 EMQX 後在 Dashboard 中修改 Listener 連接埠
+3. 重新啟動衝突的服務
 
-# 查看節點狀態
-docker compose exec emqx emqx ctl status
+### 資源需求
+EMQX 比 Mosquitto 需要更多系統資源（RAM、CPU）。如果你的 Home Assistant 主機資源有限，Mosquitto 可能是更好的選擇。
 
-# 列出已連接的客戶端
-docker compose exec emqx emqx ctl clients list
+## 疑難排解
 
-# 列出所有主題
-docker compose exec emqx emqx ctl topics list
+### EMQX 無法啟動
+- 檢查記錄檔中的錯誤訊息
+- 確認連接埠 1883、18083 沒有被佔用
+- 確認主機有足夠的記憶體
 
-# 查看叢集資訊
-docker compose exec emqx emqx ctl cluster status
-```
+### MQTT 用戶端無法連線
+- 確認已在 EMQX Dashboard 中設定驗證機制
+- 確認使用者帳號和密碼正確
+- 確認連線的 Broker 位址正確
 
-> **Podman 用戶**：將 `docker compose` 替換為 `podman-compose`，`docker exec` 替換為 `podman exec`。
+### Dashboard 無法存取
+- Dashboard 透過 Home Assistant Ingress 存取（側邊欄）
+- 也可直接存取 `http://<ha-ip>:18083`
 
-### 測試 MQTT 連接
+## 技術細節
 
-使用 mosquitto 客戶端工具進行測試：
-
-```bash
-# 安裝 mosquitto 客戶端
-# Ubuntu/Debian
-sudo apt install mosquitto-clients
-# macOS
-brew install mosquitto
-# Alpine
-apk add mosquitto-clients
-
-# 在終端 1 訂閱主題
-mosquitto_sub -h localhost -p 1883 -t "test/topic" -v
-
-# 在終端 2 發布訊息
-mosquitto_pub -h localhost -p 1883 -t "test/topic" -m "Hello EMQX!"
-
-# 帶認證的連接（關閉匿名後）
-mosquitto_sub -h localhost -p 1883 -t "test/#" -u "username" -P "password" -v
-mosquitto_pub -h localhost -p 1883 -t "test/topic" -u "username" -P "password" -m "Hello!"
-```
-
-### 資料持久化
-
-EMQX 數據存儲在 Docker/Podman volumes 中，容器移除後數據仍然保留：
-
-- **emqx_data** - EMQX 配置檔案、規則引擎、認證數據
-- **emqx_log** - 運行日誌
-
-#### 備份
-
-```bash
-# 備份數據
-docker run --rm -v emqx_data:/data -v $(pwd):/backup alpine tar czf /backup/emqx_data_backup.tar.gz /data
-
-# 備份日誌
-docker run --rm -v emqx_log:/data -v $(pwd):/backup alpine tar czf /backup/emqx_log_backup.tar.gz /data
-```
-
-#### 還原
-
-```bash
-# 還原數據
-docker run --rm -v emqx_data:/data -v $(pwd):/backup alpine tar xzf /backup/emqx_data_backup.tar.gz -C /
-
-# 還原日誌
-docker run --rm -v emqx_log:/data -v $(pwd):/backup alpine tar xzf /backup/emqx_log_backup.tar.gz -C /
-```
-
-### 故障排除
-
-| 問題 | 可能原因 | 解決方案 |
-|------|---------|---------|
-| 容器一直重啟 | 端口被佔用 | `ss -tlnp \| grep -E '1883\|8883\|8083\|8084\|18083'` 檢查端口 |
-| Dashboard 無法訪問 | 容器尚未就緒 | 等待 30 秒後再試，用 `docker compose ps` 確認 healthy |
-| MQTT 連接被拒 | 服務未啟動 | 確認容器運行中，檢查防火牆 |
-| 密碼登入失敗 | 舊數據衝突 | `docker compose down -v && docker compose up -d` 清除重建 |
-
-### 完全移除
-
-```bash
-# 停止並移除容器 + 網路
-docker compose down
-
-# 停止並移除容器 + 網路 + 所有數據
-docker compose down -v
-```
-
-### 生產環境建議
-
-1. **修改預設密碼**：`EMQX_DASHBOARD_PASSWORD` 設定強密碼
-2. **關閉匿名連接**：`EMQX_ALLOW_ANONYMOUS=false`
-3. **啟用 SSL/TLS**：配置 8883 端口的 TLS 證書
-4. **防火牆規則**：僅開放必要端口給信任的 IP
-5. **定期備份**：排程備份 emqx_data volume
-6. **資源限制**：在 docker-compose.yml 中加入 `deploy.resources.limits`
-
----
-
-## English
-
-### Introduction
-
-This project provides a complete one-click deployment solution for **EMQX MQTT Broker** using Docker Compose. EMQX is the world's leading open-source distributed MQTT message broker, designed for IoT, M2M, and mobile applications, supporting millions of concurrent connections.
-
-This deployment has been verified on:
-- **EMQX 6.0.0** (`emqx/emqx:latest`)
-- **Podman 4.9.3** + podman-compose 1.0.6
-- **Ubuntu Linux** (Docker also supported)
-
-### Architecture
+### S6-Overlay 服務啟動順序
 
 ```
-┌──────────────────────────────────────────────┐
-│              EMQX Broker v6.0.0              │
-│  ┌──────────────────────────────────────────┐│
-│  │  MQTT TCP:       1883                    ││
-│  │  MQTT SSL/TLS:   8883                    ││
-│  │  WebSocket:      8083                    ││
-│  │  WebSocket SSL:  8084                    ││
-│  │  Dashboard UI:   18083                   ││
-│  └──────────────────────────────────────────┘│
-│  Volumes:                                    │
-│  ├── emqx_data (config + runtime data)       │
-│  └── emqx_log  (logs)                        │
-└──────────────────────────────────────────────┘
-               ▲
-               │ MQTT Connections
-     ┌─────────┴─────────┐
-     │  IoT Devices /    │
-     │  Sensors          │
-     └───────────────────┘
+init-emqx (oneshot) → emqx (longrun)
 ```
 
-### Requirements
+### 服務說明
 
-| Item | Minimum |
-|------|---------|
-| Container Engine | Docker 20.10+ or Podman 4.0+ |
-| Compose Tool | Docker Compose 2.0+ or podman-compose |
-| Memory | 512MB+ (1GB+ recommended) |
-| Ports | 1883, 8883, 8083, 8084, 18083 |
+| 服務 | 類型 | 說明 |
+|------|------|------|
+| init-emqx | oneshot | 建立資料目錄 |
+| emqx | longrun | EMQX MQTT Broker |
 
-### Project File Structure
+### 檔案結構
 
 ```
-Woow_eqmx_docker_compose_all/
-├── docker-compose.yml   # Main Docker Compose configuration
-├── .env.example         # Environment variables template (copy to .env)
-├── .gitignore           # Git ignore rules (excludes .env and sensitive files)
-├── README.md            # This file - full bilingual deployment guide
-└── DEPLOY_SKILL.md      # AI rapid deployment skill guide
+woow-emqx/
+├── config.yaml              # Add-on 設定定義
+├── build.yaml               # 建置設定
+├── addon_info.yaml          # Add-on 資訊
+├── Dockerfile               # 容器建置檔
+├── DOCS.md                  # 使用說明文件
+├── CHANGELOG.md             # 變更記錄
+├── README.md                # 此文件
+├── translations/
+│   ├── en.yaml              # 英文翻譯
+│   └── zh-Hant.yaml         # 繁體中文翻譯
+├── test/
+│   ├── options.json         # 測試用設定
+│   ├── docker-compose.amd64.yml
+│   └── docker-compose.aarch64.yml
+└── rootfs/
+    └── etc/s6-overlay/s6-rc.d/
+        ├── init-emqx/       # EMQX 初始化
+        ├── emqx/            # EMQX 服務 (longrun)
+        └── user/contents.d/ # 服務註冊
 ```
 
-### Quick Start
+## 與原版差異
 
-#### 1. Get the Project
+| 功能 | 原版 (hassio-addons) | WOOWTECH 版本 |
+|------|---------------------|---------------|
+| 品牌 | Community Add-ons | WOOWTECH |
+| 中文支援 | 無 | 繁體中文翻譯及文件 |
+| 功能 | 完全相同 | 完全相同 |
+| EMQX 版本 | v5.8.9 | v5.8.9 |
 
-```bash
-git clone https://github.com/WOOWTECH/Woow_eqmx_docker_compose_all.git
-cd Woow_eqmx_docker_compose_all
-```
+## 授權條款
 
-#### 2. Create Environment Config
+MIT License
 
-```bash
-cp .env.example .env
-```
+## 致謝
 
-#### 3. Modify Settings (Recommended)
-
-Edit `.env` file, at minimum change the Dashboard password:
-
-```bash
-nano .env
-# or
-vim .env
-```
-
-Key settings:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `EMQX_VERSION` | latest | EMQX image version |
-| `EMQX_DASHBOARD_USER` | admin | Dashboard login username |
-| `EMQX_DASHBOARD_PASSWORD` | public | Dashboard login password (**change this**) |
-| `EMQX_DASHBOARD_PORT` | 18083 | Dashboard web port |
-| `MQTT_TCP_PORT` | 1883 | MQTT TCP port |
-| `MQTT_SSL_PORT` | 8883 | MQTT SSL port |
-| `MQTT_WS_PORT` | 8083 | MQTT WebSocket port |
-| `MQTT_WSS_PORT` | 8084 | MQTT WebSocket SSL port |
-| `EMQX_HOST` | 127.0.0.1 | Node host address |
-| `EMQX_ALLOW_ANONYMOUS` | true | Allow anonymous connections |
-
-#### 4. Start Services
-
-**Using Docker Compose:**
-```bash
-docker compose up -d
-```
-
-**Using Podman:**
-```bash
-podman-compose up -d
-```
-
-#### 5. Verify Deployment
-
-Wait ~30 seconds for EMQX to fully start:
-
-```bash
-# Check container status (STATUS should show healthy)
-docker compose ps
-# or
-podman-compose ps
-
-# Check EMQX node status
-docker exec emqx emqx ctl status
-# or
-podman exec emqx emqx ctl status
-# Expected: Node 'emqx@127.0.0.1' 6.0.0 is started
-
-# Test Dashboard accessibility
-curl -s -o /dev/null -w "%{http_code}" http://localhost:18083
-# Expected: 200
-```
-
-#### 6. Access Dashboard
-
-Open browser: **http://localhost:18083**
-
-- Username: `admin`
-- Password: `public` (or the password set in `.env`)
-
-### Port Reference
-
-| Port | Protocol | Purpose | Default |
-|------|----------|---------|---------|
-| 1883 | MQTT TCP | Standard MQTT connection | Enabled |
-| 8883 | MQTT SSL | TLS encrypted MQTT | Enabled |
-| 8083 | WebSocket | MQTT over WebSocket | Enabled |
-| 8084 | WebSocket SSL | MQTT over WSS | Enabled |
-| 18083 | HTTP | Dashboard management UI | Enabled |
-
-### Common Commands
-
-```bash
-# ===== Service Management =====
-# Start
-docker compose up -d
-
-# Stop
-docker compose down
-
-# Restart
-docker compose restart
-
-# View live logs
-docker compose logs -f emqx
-
-# ===== EMQX Management =====
-# Enter EMQX container
-docker compose exec emqx sh
-
-# Check node status
-docker compose exec emqx emqx ctl status
-
-# List connected clients
-docker compose exec emqx emqx ctl clients list
-
-# List all topics
-docker compose exec emqx emqx ctl topics list
-
-# View cluster info
-docker compose exec emqx emqx ctl cluster status
-```
-
-> **Podman users**: Replace `docker compose` with `podman-compose` and `docker exec` with `podman exec`.
-
-### Testing MQTT Connection
-
-Using mosquitto client tools:
-
-```bash
-# Install mosquitto client
-# Ubuntu/Debian
-sudo apt install mosquitto-clients
-# macOS
-brew install mosquitto
-# Alpine
-apk add mosquitto-clients
-
-# Subscribe in Terminal 1
-mosquitto_sub -h localhost -p 1883 -t "test/topic" -v
-
-# Publish in Terminal 2
-mosquitto_pub -h localhost -p 1883 -t "test/topic" -m "Hello EMQX!"
-
-# Authenticated connection (when anonymous disabled)
-mosquitto_sub -h localhost -p 1883 -t "test/#" -u "username" -P "password" -v
-mosquitto_pub -h localhost -p 1883 -t "test/topic" -u "username" -P "password" -m "Hello!"
-```
-
-### Data Persistence
-
-EMQX data is stored in Docker/Podman volumes, preserved across container removal:
-
-- **emqx_data** - Configuration, rule engine, authentication data
-- **emqx_log** - Runtime logs
-
-#### Backup
-
-```bash
-# Backup data
-docker run --rm -v emqx_data:/data -v $(pwd):/backup alpine tar czf /backup/emqx_data_backup.tar.gz /data
-
-# Backup logs
-docker run --rm -v emqx_log:/data -v $(pwd):/backup alpine tar czf /backup/emqx_log_backup.tar.gz /data
-```
-
-#### Restore
-
-```bash
-# Restore data
-docker run --rm -v emqx_data:/data -v $(pwd):/backup alpine tar xzf /backup/emqx_data_backup.tar.gz -C /
-
-# Restore logs
-docker run --rm -v emqx_log:/data -v $(pwd):/backup alpine tar xzf /backup/emqx_log_backup.tar.gz -C /
-```
-
-### Troubleshooting
-
-| Issue | Possible Cause | Solution |
-|-------|---------------|----------|
-| Container keeps restarting | Port conflict | `ss -tlnp \| grep -E '1883\|8883\|8083\|8084\|18083'` |
-| Dashboard unreachable | Container not ready | Wait 30s, check `docker compose ps` for healthy |
-| MQTT connection refused | Service not started | Confirm container running, check firewall |
-| Login fails | Stale data | `docker compose down -v && docker compose up -d` |
-
-### Complete Removal
-
-```bash
-# Stop and remove container + network
-docker compose down
-
-# Stop and remove container + network + all data
-docker compose down -v
-```
-
-### Production Recommendations
-
-1. **Change default password**: Set a strong `EMQX_DASHBOARD_PASSWORD`
-2. **Disable anonymous access**: `EMQX_ALLOW_ANONYMOUS=false`
-3. **Enable SSL/TLS**: Configure TLS certificates for port 8883
-4. **Firewall rules**: Only open necessary ports to trusted IPs
-5. **Regular backups**: Schedule emqx_data volume backups
-6. **Resource limits**: Add `deploy.resources.limits` in docker-compose.yml
-
----
-
-## K3s/Kubernetes Deployment
-
-This project also supports deployment on **K3s/Kubernetes** clusters. The K3s manifests are maintained on a separate branch.
-
-### Quick Start (K3s)
-
-```bash
-# Clone the k3s branch
-git clone -b k3s https://github.com/WOOWTECH/Woow_eqmx_docker_compose_all.git Woow_eqmx_docker_compose_all-k3s
-cd Woow_eqmx_docker_compose_all-k3s
-
-# Edit secrets before deploying
-nano secret.yaml
-
-# Deploy to your k3s cluster
-kubectl apply -k .
-
-# Verify pods are running
-kubectl -n emqx get pods
-```
-
-### Deployment Methods Comparison
-
-| Feature | Podman/Docker Compose | K3s/Kubernetes |
-|---------|----------------------|----------------|
-| Branch | `main` | `k3s` |
-| Orchestrator | Podman / Docker | K3s / Kubernetes |
-| Config format | `.env` + `docker-compose.yml` | ConfigMap + Secret + YAML manifests |
-| Scaling | Manual | `kubectl scale` |
-| Health checks | Docker healthcheck | liveness/readiness/startup probes |
-| Service discovery | Docker DNS | Kubernetes DNS (`svc.cluster.local`) |
-| Storage | Docker volumes | PersistentVolumeClaims |
-| Rolling updates | `docker compose pull && up -d` | `kubectl rollout restart` |
-
-> For full K3s deployment documentation, switch to the [`k3s` branch](https://github.com/WOOWTECH/Woow_eqmx_docker_compose_all/tree/k3s).
+- [hassio-addons/addon-emqx](https://github.com/hassio-addons/addon-emqx) — 原始 EMQX HA Add-on (Franck Nijhof)
+- [emqx/emqx](https://github.com/emqx/emqx) — EMQX 開源 MQTT Broker
+- [WOOWTECH](https://github.com/WOOWTECH) — 本 Fork 維護者
