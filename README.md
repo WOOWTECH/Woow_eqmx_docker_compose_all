@@ -6,6 +6,18 @@
 此 Add-on 由 **WOOWTECH** 維護，基於 [hassio-addons/addon-emqx](https://github.com/hassio-addons/addon-emqx) 進行 Fork。
 EMQX 是 Home Assistant 中 Mosquitto MQTT Broker 的進階替代方案，提供圖形化管理介面。
 
+## Installation
+
+To install, click the button below:
+
+[![Open your Home Assistant instance and show the dashboard of an add-on.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?addon=woow-emqx&repository_url=https%3A%2F%2Fgithub.com%2FWOOWTECH%2FWoow_eqmx_docker_compose_all)
+
+Or add the repository manually:
+
+[![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FWOOWTECH%2FWoow_eqmx_docker_compose_all)
+
+Then navigate to **Settings → Add-ons → Add-on Store**, find "Woow EMQX" and click **INSTALL**.
+
 ## 架構組成
 
 | 元件 | 版本 | 說明 |
